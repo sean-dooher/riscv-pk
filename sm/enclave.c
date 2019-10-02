@@ -10,12 +10,16 @@
 #include "atomic.h"
 #include "platform.h"
 
-#define ENCL_MAX  16
-
 struct enclave enclaves[ENCL_MAX];
 #define ENCLAVE_EXISTS(eid) (enclaves[eid].state >= 0)
 
 static spinlock_t encl_lock = SPINLOCK_INIT;
+void enclave_lock(void) {
+    spinlock_lock(&encl_lock);
+}
+void enclave_unlock(void) {
+    spinlock_unlock(&encl_lock);
+}
 
 extern void save_host_regs(void);
 extern void restore_host_regs(void);
@@ -277,8 +281,8 @@ static int buffer_in_enclave_region(struct enclave* enclave,
 }
 
 /* copies data from enclave, source must be inside EPM */
-static enclave_ret_code copy_from_enclave(struct enclave* enclave,
-                                          void* dest, void* source, size_t size) {
+enclave_ret_code copy_from_enclave(struct enclave* enclave,
+                                   void* dest, void* source, size_t size) {
 
   spinlock_lock(&encl_lock);
   int legal = buffer_in_enclave_region(enclave, source, size);
@@ -294,8 +298,8 @@ static enclave_ret_code copy_from_enclave(struct enclave* enclave,
 }
 
 /* copies data into enclave, destination must be inside EPM */
-static enclave_ret_code copy_to_enclave(struct enclave* enclave,
-                                        void* dest, void* source, size_t size) {
+enclave_ret_code copy_to_enclave(struct enclave* enclave,
+                                 void* dest, void* source, size_t size) {
   spinlock_lock(&encl_lock);
   int legal = buffer_in_enclave_region(enclave, dest, size);
 
@@ -623,53 +627,3 @@ enclave_ret_code resume_enclave(uintptr_t* host_regs, enclave_id eid)
   return context_switch_to_enclave(host_regs, eid, 0);
 }
 
-enclave_ret_code attest_enclave(uintptr_t report_ptr, uintptr_t data, uintptr_t size, enclave_id eid)
-{
-  int attestable;
-  struct report report;
-  int ret;
-
-  if (size > ATTEST_DATA_MAXLEN)
-    return ENCLAVE_ILLEGAL_ARGUMENT;
-
-  spinlock_lock(&encl_lock);
-  attestable = (ENCLAVE_EXISTS(eid)
-                && (enclaves[eid].state >= INITIALIZED));
-  spinlock_unlock(&encl_lock);
-
-  if(!attestable)
-    return ENCLAVE_NOT_INITIALIZED;
-
-  /* copy data to be signed */
-  ret = copy_from_enclave(&enclaves[eid],
-      report.enclave.data,
-      (void*)data,
-      size);
-  report.enclave.data_len = size;
-
-  if (ret) {
-    return ret;
-  }
-
-  memcpy(report.dev_public_key, dev_public_key, PUBLIC_KEY_SIZE);
-  memcpy(report.sm.hash, sm_hash, MDSIZE);
-  memcpy(report.sm.public_key, sm_public_key, PUBLIC_KEY_SIZE);
-  memcpy(report.sm.signature, sm_signature, SIGNATURE_SIZE);
-  memcpy(report.enclave.hash, enclaves[eid].hash, MDSIZE);
-  sm_sign(report.enclave.signature,
-      &report.enclave,
-      sizeof(struct enclave_report)
-      - SIGNATURE_SIZE
-      - ATTEST_DATA_MAXLEN + size);
-
-  /* copy report to the enclave */
-  ret = copy_to_enclave(&enclaves[eid],
-      (void*)report_ptr,
-      &report,
-      sizeof(struct report));
-  if (ret) {
-    return ret;
-  }
-
-  return ENCLAVE_SUCCESS;
-}

@@ -2,6 +2,7 @@
 
 pub mod cpu;
 pub mod sm;
+pub mod enclave;
 
 #[allow(warnings)]
 pub mod bindings {

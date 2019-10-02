@@ -59,7 +59,6 @@ void sm_init(void);
 /* platform specific functions */
 #define ATTESTATION_KEY_LENGTH  64
 void sm_retrieve_pubkey(void* dest);
-void sm_sign(void* sign, const void* data, size_t len);
 
 /* creation parameters */
 struct keystone_sbi_pregion

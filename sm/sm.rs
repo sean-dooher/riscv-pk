@@ -84,10 +84,15 @@ pub extern fn osm_init() -> c_int
   return region;
 }
 
-#[no_mangle]
-pub unsafe extern fn sm_sign(signature: *mut c_void, data: *const c_void, len: usize)
+pub type Signature = [u8; SIGNATURE_SIZE as usize];
+
+pub fn sm_sign(signature: &mut Signature, data: &[u8])
 {
-  sign(signature, data, len, sm_public_key.as_ptr(), sm_private_key.as_ptr());
+  let sig_ptr = signature.as_mut_ptr() as *mut c_void;
+  let data_ptr = data.as_ptr() as *const c_void;
+  unsafe {
+    sign(sig_ptr, data_ptr, data.len(), sm_public_key.as_ptr(), sm_private_key.as_ptr());
+  }
 }
 
 fn sm_copy_key()
@@ -136,12 +141,12 @@ pub extern fn sm_init()
 
   if !init_data.init_done {
     init_data.sm_region_id = smm_init();
-    if(init_data.sm_region_id < 0) {
+    if init_data.sm_region_id < 0 {
       panic!("[SM] intolerable error - failed to initialize SM memory");
     }
 
     init_data.os_region_id = osm_init();
-    if(init_data.os_region_id < 0) {
+    if init_data.os_region_id < 0 {
       panic!("[SM] intolerable error - failed to initialize OS memory");
     }
 
