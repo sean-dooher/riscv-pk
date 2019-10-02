@@ -193,33 +193,6 @@ static enclave_ret_code encl_free_eid(enclave_id eid)
   return ENCLAVE_SUCCESS;
 }
 
-int get_enclave_region_index(enclave_id eid, enum enclave_region_type type){
-  size_t i;
-  for(i = 0;i < ENCLAVE_REGIONS_MAX; i++){
-    if(enclaves[eid].regions[i].type == type){
-      return i;
-    }
-  }
-  // No such region for this enclave
-  return -1;
-}
-
-uintptr_t get_enclave_region_size(enclave_id eid, int memid)
-{
-  if (0 <= memid && memid < ENCLAVE_REGIONS_MAX)
-    return pmp_region_get_size(enclaves[eid].regions[memid].pmp_rid);
-
-  return 0;
-}
-
-uintptr_t get_enclave_region_base(enclave_id eid, int memid)
-{
-  if (0 <= memid && memid < ENCLAVE_REGIONS_MAX)
-    return pmp_region_get_addr(enclaves[eid].regions[memid].pmp_rid);
-
-  return 0;
-}
-
 /* Ensures that dest ptr is in host, not in enclave regions
  */
 static enclave_ret_code copy_word_to_host(uintptr_t* dest_ptr, uintptr_t value)

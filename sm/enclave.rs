@@ -5,6 +5,54 @@ use util::ctypes::*;
 use crate::bindings::*;
 use crate::sm;
 
+
+
+#[no_mangle]
+pub extern fn get_enclave_region_index(eid: enclave_id, ty: enclave_region_type) -> c_int
+{
+  let eid = eid as usize;
+
+  for i in 0..ENCLAVE_REGIONS_MAX {
+    if unsafe { enclaves[eid] }.regions[i as usize].type_ == ty {
+      return i as c_int;
+    }
+  }
+  // No such region for this enclave
+  -1
+}
+
+#[no_mangle]
+pub extern fn get_enclave_region_size(eid: enclave_id, memid: c_int) -> usize
+{
+  let eid = eid as usize;
+
+  if 0 <= memid && memid < ENCLAVE_REGIONS_MAX as c_int {
+    let size = unsafe {
+        pmp_region_get_size(enclaves[eid].regions[memid as usize].pmp_rid)
+    };
+    // TODO: u64<->usize mismatch
+    return size as usize;
+  }
+
+  0
+}
+
+#[no_mangle]
+pub unsafe extern fn get_enclave_region_base(eid: enclave_id, memid: c_int) -> usize
+{
+  let eid = eid as usize;
+
+  if 0 <= memid && memid < ENCLAVE_REGIONS_MAX as c_int {
+    let addr = pmp_region_get_addr(enclaves[eid].regions[memid as usize].pmp_rid);
+    // TODO: u64<->usize mismatch
+    return addr as usize;
+  }
+
+  0
+}
+
+
+
 #[no_mangle]
 pub extern fn attest_enclave(report_ptr: usize, data: usize, size: usize, eid: enclave_id) -> enclave_ret_code 
 {
