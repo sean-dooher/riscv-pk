@@ -115,9 +115,11 @@ static inline void context_switch_to_host(uintptr_t* encl_regs,
   swap_prev_state(&enclaves[eid].threads[0], encl_regs);
   swap_prev_mepc(&enclaves[eid].threads[0], read_csr(mepc));
 
-  // enable timer interrupt
-  //Timer interrupts should still be enabled since we don't disable them when we enter an enclave 
+  // enable timer interrupt 
   //set_csr(mie, MIP_MTIP);
+
+  //Clear any pending interrupts (MTIP can be pending if timer in context switch to enclave goes off)
+  clear_csr(mip, MIP_MTIP); 
 
   // Reconfigure platform specific defenses
   platform_switch_from_enclave(&(enclaves[eid]));
