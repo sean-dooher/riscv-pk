@@ -11,7 +11,8 @@
 #include "platform.h"
 
 #define ENCL_MAX  16
-
+#define MAX_ENCLAVE_TIME 3600
+ 
 struct enclave enclaves[ENCL_MAX];
 #define ENCLAVE_EXISTS(eid) (enclaves[eid].state >= 0)
 
@@ -69,7 +70,13 @@ static inline enclave_ret_code context_switch_to_enclave(uintptr_t* regs,
   }
 
   // disable timer set by the OS
-  clear_csr(mie, MIP_MTIP);
+  //clear_csr(mie, MIP_MTIP);
+
+  //Set timer interrupt to max allocated time slice for enclave
+  //If time exceeds, SM chooses what to do
+  //mcall_set_timer(MAX_ENCLAVE_TIME); 
+  *HLS()->timecmp = MAX_ENCLAVE_TIME;
+
 
   // Clear pending interrupts
   clear_csr(mip, MIP_MTIP);
@@ -109,7 +116,8 @@ static inline void context_switch_to_host(uintptr_t* encl_regs,
   swap_prev_mepc(&enclaves[eid].threads[0], read_csr(mepc));
 
   // enable timer interrupt
-  set_csr(mie, MIP_MTIP);
+  //Timer interrupts should still be enabled since we don't disable them when we enter an enclave 
+  //set_csr(mie, MIP_MTIP);
 
   // Reconfigure platform specific defenses
   platform_switch_from_enclave(&(enclaves[eid]));
