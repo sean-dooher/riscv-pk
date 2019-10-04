@@ -119,7 +119,8 @@ static inline void context_switch_to_host(uintptr_t* encl_regs,
   //set_csr(mie, MIP_MTIP);
 
   //Clear any pending interrupts (MTIP can be pending if timer in context switch to enclave goes off)
-  clear_csr(mip, MIP_MTIP); 
+  clear_csr(mip, MIP_MTIP);
+  *HLS()->timecmp = -1ULL; 
 
   // Reconfigure platform specific defenses
   platform_switch_from_enclave(&(enclaves[eid]));
