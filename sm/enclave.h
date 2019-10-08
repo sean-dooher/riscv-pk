@@ -135,12 +135,6 @@ enclave_ret_code context_switch_to_enclave(uintptr_t* regs,
                                            int load_parameters);
 void context_switch_to_host(uintptr_t* encl_regs,
                             enclave_id eid);
-enclave_ret_code copy_from_enclave(struct enclave* enclave,
-                                   void* dest, void* source, size_t size);
-enclave_ret_code copy_to_enclave(struct enclave* enclave,
-                                 void* dest, void* source, size_t size);
-enclave_ret_code clean_enclave_memory(uintptr_t utbase, uintptr_t utsize);
-enclave_ret_code copy_word_to_host(uintptr_t* dest_ptr, uintptr_t value);
 void enclave_lock(void);
 void enclave_unlock(void);
 enclave_ret_code encl_alloc_eid(enclave_id *eid);

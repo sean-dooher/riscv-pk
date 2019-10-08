@@ -15,11 +15,20 @@ fn enclave_exists(eid: enclave_id) -> bool {
 }
 
 
+unsafe fn clean_enclave_memory(utbase: usize, utsize: usize)
+{
+
+  // This function is quite temporary. See issue #38
+
+  // Zero out the untrusted memory region, since it may be in
+  // indeterminate state.
+  (utbase as *mut c_void).write_bytes(0, utsize);
+}
+
 
 /* Ensures that dest ptr is in host, not in enclave regions
  */
-#[no_mangle]
-pub unsafe extern fn copy_word_to_host(dest_ptr: *mut usize, value: usize) -> enclave_ret_code 
+unsafe fn copy_word_to_host(dest_ptr: *mut usize, value: usize) -> enclave_ret_code 
 {
   enclave_lock();
   let region_overlap = pmp_detect_region_overlap_atomic(dest_ptr as usize,
@@ -60,6 +69,42 @@ pub unsafe extern fn copy_from_host(source: *mut c_void, dest: *mut c_void, size
   }
 }
 
+/* copies data from enclave, source must be inside EPM */
+unsafe fn copy_from_enclave(enclave: &enclave, dest: *mut c_void, source: *const c_void, size: usize) -> enclave_ret_code
+{
+  enclave_lock();
+  let legal = buffer_in_enclave_region(&*enclave, source, size);
+
+  if legal {
+    dest.copy_from_nonoverlapping(source, size);
+  }
+  enclave_unlock();
+
+  if !legal {
+    ENCLAVE_ILLEGAL_ARGUMENT as enclave_ret_code
+  } else {
+    ENCLAVE_SUCCESS as enclave_ret_code
+  }
+}
+
+/* copies data into enclave, destination must be inside EPM */
+unsafe fn copy_to_enclave(enclave: &enclave, dest: *mut c_void, source: *const c_void, size: usize) -> enclave_ret_code
+{
+  enclave_lock();
+  let legal = buffer_in_enclave_region(enclave, dest, size);
+
+  if legal {
+    dest.copy_from_nonoverlapping(source, size);
+  }
+  enclave_unlock();
+
+  if !legal {
+    ENCLAVE_ILLEGAL_ARGUMENT as enclave_ret_code
+  } else {
+    ENCLAVE_SUCCESS as enclave_ret_code
+  }
+}
+
 
 
 #[no_mangle]
@@ -74,6 +119,29 @@ pub extern fn get_enclave_region_index(eid: enclave_id, ty: enclave_region_type)
   }
   // No such region for this enclave
   -1
+}
+
+
+fn buffer_in_enclave_region(enclave: &enclave, start: *const c_void, size: usize) -> bool
+{
+  let start = start as usize;
+  let end = start + size;
+
+  let mut enclave_iter = enclave.regions.iter()
+      .filter(|r| r.type_ != enclave_region_type_REGION_INVALID)
+      .filter(|r| r.type_ != enclave_region_type_REGION_UTM);
+
+  /* Check if the source is in a valid region */
+  for region in enclave_iter {
+    let region_start = unsafe { pmp_region_get_addr(region.pmp_rid) };
+    let region_size = unsafe { pmp_region_get_size(region.pmp_rid) } as usize;
+    let region_end = region_start + region_size;
+
+    if start >= region_start && end <= region_end {
+      return true
+    }
+  }
+  false
 }
 
 #[no_mangle]
@@ -240,21 +308,47 @@ impl Drop for PmpRegion {
     }
 }
 
+
+fn encl_alloc_eid() -> Result<enclave_id, enclave_ret_code>
+{
+  unsafe {
+      enclave_lock();
+
+      let found = enclaves.iter_mut()
+          .enumerate()
+          .find(|(_, enc)| enc.state < 0);
+
+      let ret = if let Some((eid, enclave)) = found {
+        enclave.state = enclave_state_ALLOCATED;
+        Ok(eid as enclave_id)
+      } else {
+        Err(ENCLAVE_NO_FREE_RESOURCE as enclave_ret_code)
+      };
+
+      enclave_unlock();
+      ret
+  }
+}
+
+#[no_mangle]
+pub extern fn encl_free_eid(eid: enclave_id) -> enclave_ret_code
+{
+  unsafe {
+    enclave_lock();
+    enclaves[eid as usize].state = enclave_state_DESTROYED;
+    enclave_unlock();
+  }
+  ENCLAVE_SUCCESS as enclave_ret_code
+}
+
 struct Eid {
     eid: enclave_id
 }
 
 impl Eid {
     fn reserve() -> Result<Eid, usize> {
-        let mut eid = 0;
-        let err = unsafe {
-            encl_alloc_eid(&mut eid)
-        };
-        if err != 0 {
-            return Err(err);
-        }
         Ok(Self {
-            eid
+            eid: encl_alloc_eid()?
         })
     }
 
@@ -267,9 +361,7 @@ impl Eid {
 
 impl Drop for Eid {
     fn drop(&mut self) {
-        unsafe {
-            encl_free_eid(self.eid);
-        }
+        encl_free_eid(self.eid);
     }
 }
 
@@ -345,7 +437,7 @@ pub unsafe extern fn create_enclave(create_args: keystone_sbi_create) -> enclave
       ped: zeroed(),
       threads: zeroed(),
       sign: zeroed(),
-      state: enclave_state_FRESH,
+      state: enclave_state_INVALID,
 
       encl_satp: ((base >> RISCV_PGSHIFT) | SATP_MODE_CHOICE),
       n_thread: 0,
