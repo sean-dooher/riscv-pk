@@ -139,7 +139,12 @@ enclave_ret_code copy_from_enclave(struct enclave* enclave,
                                    void* dest, void* source, size_t size);
 enclave_ret_code copy_to_enclave(struct enclave* enclave,
                                  void* dest, void* source, size_t size);
+enclave_ret_code clean_enclave_memory(uintptr_t utbase, uintptr_t utsize);
+enclave_ret_code copy_word_to_host(uintptr_t* dest_ptr, uintptr_t value);
 void enclave_lock(void);
 void enclave_unlock(void);
+enclave_ret_code encl_alloc_eid(enclave_id *eid);
+enclave_ret_code encl_free_eid(enclave_id eid);
+int is_create_args_valid(const struct keystone_sbi_create* args);
 
 #endif
