@@ -70,13 +70,12 @@ static inline enclave_ret_code context_switch_to_enclave(uintptr_t* regs,
   }
 
   // disable timer set by the OS
-  //clear_csr(mie, MIP_MTIP);
+  clear_csr(mie, MIP_MTIP);
 
-  //Set timer interrupt to max allocated time slice for enclave
-  //If time exceeds, SM chooses what to do
-  //mcall_set_timer(MAX_ENCLAVE_TIME); 
-  *HLS()->timecmp = MAX_ENCLAVE_TIME;
+  uintptr_t interrupts = MIP_SSIP | MIP_SEIP;
+  write_csr(mideleg, interrupts);
 
+  //toggle_timer_delegation(1); 
 
   // Clear pending interrupts
   clear_csr(mip, MIP_MTIP);
@@ -115,12 +114,12 @@ static inline void context_switch_to_host(uintptr_t* encl_regs,
   swap_prev_state(&enclaves[eid].threads[0], encl_regs);
   swap_prev_mepc(&enclaves[eid].threads[0], read_csr(mepc));
 
+  uintptr_t interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
+  write_csr(mideleg, interrupts);
+  
   // enable timer interrupt 
-  //set_csr(mie, MIP_MTIP);
+  set_csr(mie, MIP_MTIP);
 
-  //Clear any pending interrupts (MTIP can be pending if timer in context switch to enclave goes off)
-  clear_csr(mip, MIP_MTIP);
-  *HLS()->timecmp = -1ULL; 
 
   // Reconfigure platform specific defenses
   platform_switch_from_enclave(&(enclaves[eid]));
