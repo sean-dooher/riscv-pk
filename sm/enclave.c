@@ -33,29 +33,6 @@ extern byte dev_public_key[PUBLIC_KEY_SIZE];
  ****************************/
 
 
-// TODO: This function is externally used.
-// refactoring needed
-/*
- * Init all metadata as needed for keeping track of enclaves
- * Called once by the SM on startup
- */
-void enclave_init_metadata(){
-  enclave_id eid;
-  int i=0;
-
-  /* Assumes eids are incrementing values, which they are for now */
-  for(eid=0; eid < ENCL_MAX; eid++){
-    enclaves[eid].state = INVALID;
-
-    // Clear out regions
-    for(i=0; i < ENCLAVE_REGIONS_MAX; i++){
-      enclaves[eid].regions[i].type = REGION_INVALID;
-    }
-    /* Fire all platform specific init for each enclave */
-    platform_init_enclave(&(enclaves[eid]));
-  }
-
-}
 
 
 

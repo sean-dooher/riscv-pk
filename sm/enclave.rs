@@ -12,6 +12,14 @@ use crate::sm;
 const SATP_MODE_CHOICE: usize = insert_field!(0, SATP64_MODE as usize, SATP_MODE_SV39 as usize);
 
 
+/****************************
+ *
+ * Enclave utility functions
+ * Internal use by SBI calls
+ *
+ ****************************/
+
+
 /* Internal function containing the core of the context switching
  * code to the enclave.
  *
@@ -334,6 +342,37 @@ pub unsafe extern fn get_enclave_region_base(eid: enclave_id, memid: c_int) -> u
   0
 }
 
+// TODO: This function is externally used.
+// refactoring needed
+/*
+ * Init all metadata as needed for keeping track of enclaves
+ * Called once by the SM on startup
+ */
+#[no_mangle]
+pub unsafe extern fn enclave_init_metadata()
+{
+  /* Assumes eids are incrementing values, which they are for now */
+  for enclave in unsafe { enclaves.iter_mut() } {
+    enclave.state = enclave_state_INVALID;
+
+    // Clear out regions
+    for region in enclave.regions.iter_mut() {
+      region.type_ = enclave_region_type_REGION_INVALID;
+    }
+    /* Fire all platform specific init for each enclave */
+    platform_init_enclave(enclave);
+  }
+
+}
+
+
+
+/*********************************
+ *
+ * Enclave SBI functions
+ * These are exposed to S-mode via the sm-sbi interface
+ *
+ *********************************/
 
 
 #[no_mangle]
