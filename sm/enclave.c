@@ -70,11 +70,16 @@ static inline enclave_ret_code context_switch_to_enclave(uintptr_t* regs,
   }
 
   // disable timer set by the OS
-  clear_csr(mie, MIP_MTIP);
+  //clear_csr(mie, MIP_MTIP);
+
+
+  //Enable timer
+  set_csr(mie, MIP_MTIP);
 
   uintptr_t interrupts = MIP_SSIP | MIP_SEIP;
   write_csr(mideleg, interrupts);
-
+  
+  
   //toggle_timer_delegation(1); 
 
   // Clear pending interrupts
@@ -118,9 +123,10 @@ static inline void context_switch_to_host(uintptr_t* encl_regs,
   write_csr(mideleg, interrupts);
   
   // enable timer interrupt 
-  set_csr(mie, MIP_MTIP);
+  //set_csr(mie, MIP_MTIP);
 
-
+   clear_csr(mie, MIP_MTIP);
+  
   // Reconfigure platform specific defenses
   platform_switch_from_enclave(&(enclaves[eid]));
 

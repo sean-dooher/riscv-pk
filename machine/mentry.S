@@ -45,38 +45,6 @@ trap_vector:
 
   bgez a1, .Lhandle_trap_in_machine_mode
 
-
-  #Store registers for interrupts
-  STORE ra, 1*REGBYTES(sp)
-  STORE t0, 2*REGBYTES(sp)
-  STORE gp, 3*REGBYTES(sp)
-  STORE tp, 4*REGBYTES(sp)
-  STORE t0, 5*REGBYTES(sp)
-  STORE t1, 6*REGBYTES(sp)
-  STORE t2, 7*REGBYTES(sp)
-  STORE s0, 8*REGBYTES(sp)
-  STORE s1, 9*REGBYTES(sp)
-  STORE a2,12*REGBYTES(sp)
-  STORE a3,13*REGBYTES(sp)
-  STORE a4,14*REGBYTES(sp)
-  STORE a5,15*REGBYTES(sp)
-  STORE a6,16*REGBYTES(sp)
-  STORE a7,17*REGBYTES(sp)
-  STORE s2,18*REGBYTES(sp)
-  STORE s3,19*REGBYTES(sp)
-  STORE s4,20*REGBYTES(sp)
-  STORE s5,21*REGBYTES(sp)
-  STORE s6,22*REGBYTES(sp)
-  STORE s7,23*REGBYTES(sp)
-  STORE s8,24*REGBYTES(sp)
-  STORE s9,25*REGBYTES(sp)
-  STORE s10,26*REGBYTES(sp)
-  STORE s11,27*REGBYTES(sp)
-  STORE t3,28*REGBYTES(sp)
-  STORE t4,29*REGBYTES(sp)
-  STORE t5,30*REGBYTES(sp)
-  STORE t6,31*REGBYTES(sp)
-
   # This is an interrupt.  Discard the mcause MSB and decode the rest.
   sll a1, a1, 1
 
@@ -89,6 +57,9 @@ trap_vector:
   csrc mie, a0
   li a0, MIP_STIP
   csrs mip, a0
+
+  j .Lhandle_timer_int_machine_mode
+
 
 .Lmret:
   # Go back whence we came.
@@ -139,6 +110,67 @@ trap_vector:
 #endif
 1:
   j .Lmret
+
+
+.Lhandle_timer_int_machine_mode:
+  li a1, 9 # set mcause <- 9 (mcall_trap)
+  #li a7, 106 #set n <- SBI_SM_STOP_ENCLAVE  
+
+  STORE ra, 1*REGBYTES(sp)
+  STORE gp, 3*REGBYTES(sp)
+  STORE tp, 4*REGBYTES(sp)
+  STORE t0, 5*REGBYTES(sp)
+1:auipc t0, %pcrel_hi(trap_table)  # t0 <- %hi(trap_table)
+  STORE t1, 6*REGBYTES(sp)
+  sll t1, a1, 2                    # t1 <- mcause << 2
+  STORE t2, 7*REGBYTES(sp)
+  add t1, t0, t1                   # t1 <- %hi(trap_table)[mcause]
+  STORE s0, 8*REGBYTES(sp)
+  LWU t1, %pcrel_lo(1b)(t1)         # t1 <- trap_table[mcause]
+  STORE s1, 9*REGBYTES(sp)
+  mv a0, sp                        # a0 <- regs  
+  STORE a2,12*REGBYTES(sp)
+  csrr a2, mepc                    # a2 <- mepc
+  STORE a3,13*REGBYTES(sp)
+  csrrw t0, mscratch, x0           # t0 <- user sp
+  STORE a4,14*REGBYTES(sp)
+  STORE a5,15*REGBYTES(sp)
+  STORE a6,16*REGBYTES(sp)
+  STORE a7,17*REGBYTES(sp)
+
+  STORE s2,18*REGBYTES(sp)
+  STORE s3,19*REGBYTES(sp)
+  STORE s4,20*REGBYTES(sp)
+  STORE s5,21*REGBYTES(sp)
+  STORE s6,22*REGBYTES(sp)
+  STORE s7,23*REGBYTES(sp)
+  STORE s8,24*REGBYTES(sp)
+  STORE s9,25*REGBYTES(sp)
+  STORE s10,26*REGBYTES(sp)
+  STORE s11,27*REGBYTES(sp)
+  STORE t3,28*REGBYTES(sp)
+  STORE t4,29*REGBYTES(sp)
+  STORE t5,30*REGBYTES(sp)
+  STORE t6,31*REGBYTES(sp)
+  STORE t0, 2*REGBYTES(sp)         # sp
+
+
+  LOAD a7, 17*REGBYTES(sp) 
+
+  addi sp, sp, -1*REGBYTES
+
+  STORE a7, (sp) # save previous a7 (used for the SBI call) 
+  
+  li a7, 106 #set n <- SBI_SM_STOP_ENCLAVE  
+  STORE a7, (17 + 2)*REGBYTES(sp)
+
+  jalr t1  
+  
+  LOAD a7, (sp) #load previous a7 (used for the SBI call)
+  addi sp, sp, REGBYTES #increment sp to its original value (we actually don't need to do this since sp is restored anyways...)
+
+  j restore_mscratch
+  
 
 
 .Lhandle_trap_in_machine_mode:
