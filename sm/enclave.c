@@ -406,6 +406,28 @@ enclave_ret_code create_enclave(struct keystone_sbi_create create_args)
   if(encl_alloc_eid(&eid) != ENCLAVE_SUCCESS)
     goto error;
 
+  //temporary code for testing : Dayeol
+  size_t temp_size = 1024*1024;// create_args.free_paddr - base + 4*4096;
+  if((base + temp_size) < create_args.free_paddr)
+  {
+          printm("FATAL(TEST): CANNOT CREATE BACKING STORE, half of EPM: 0x%lx, freemem: 0x%lx\n", base + temp_size, create_args.free_paddr);
+  }
+  else
+  {
+          region_id backing_rid;
+
+          if(pmp_region_init_atomic(base + temp_size, size - temp_size, PMP_PRI_ANY, &backing_rid, 0))
+          {
+                  printm("FATAL CANNOT CREATE PMP FOR BACKING STORAGE\n");
+          }
+          enclaves[eid].regions[2].type = REGION_OTHER;
+          enclaves[eid].regions[2].pmp_rid = backing_rid;
+          pmp_set_global(backing_rid, PMP_NO_PERM);
+          size = temp_size;
+          pa_params.dram_size = temp_size;
+  }
+  // end of temporary code
+
   // create a PMP region bound to the enclave
   ret = ENCLAVE_PMP_FAILURE;
   if(pmp_region_init_atomic(base, size, PMP_PRI_ANY, &region, 0))
