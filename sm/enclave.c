@@ -43,7 +43,7 @@ static inline enclave_ret_code context_switch_to_enclave(uintptr_t* regs,
   /* save host context */
   swap_prev_state(&enclaves[eid].threads[0], regs);
   swap_prev_mepc(&enclaves[eid].threads[0], read_csr(mepc));
-
+  
   if(load_parameters){
     // passing parameters for a first run
     // $mepc: (VA) kernel entry
@@ -71,8 +71,9 @@ static inline enclave_ret_code context_switch_to_enclave(uintptr_t* regs,
 
   // disable timer set by the OS
   //clear_csr(mie, MIP_MTIP);
-
-
+  //Subroutine which switches mtvec to host mtvec
+  extern void switch_vector_enclave();
+  switch_vector_enclave();  
   //Enable timer
   set_csr(mie, MIP_MTIP);
 
@@ -121,6 +122,11 @@ static inline void context_switch_to_host(uintptr_t* encl_regs,
 
   uintptr_t interrupts = MIP_SSIP | MIP_STIP | MIP_SEIP;
   write_csr(mideleg, interrupts);
+
+  //Subroutine which switches mtvec to enclave mtvec
+  extern void switch_vector_host();
+  switch_vector_host();
+
   
   // enable timer interrupt 
   //set_csr(mie, MIP_MTIP);
