@@ -33,6 +33,7 @@ branches:
     - keystone
 
 before_install:
+  - rustup target add riscv64gc-unknown-none-elf
   - ./.fast-setup.sh
 
 jobs:
