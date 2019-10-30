@@ -10,7 +10,7 @@ pub enum Priority {
 }
 
 pub struct PmpRegion {
-    region: c_int,
+    pub(crate) region: c_int,
     should_free: bool,
 }
 

@@ -56,13 +56,14 @@ enclave_ret_code resume_enclave(uintptr_t* regs, enclave_id eid);
 enclave_ret_code exit_enclave(uintptr_t* regs, unsigned long retval, enclave_id eid);
 enclave_ret_code stop_enclave(uintptr_t* regs, uint64_t request, enclave_id eid);
 enclave_ret_code attest_enclave(uintptr_t report, uintptr_t data, uintptr_t size, enclave_id eid);
-// TODO: These functions are supposed to be internal functions.
-void enclave_init_metadata();
-int get_enclave_region_index(const struct enclave *enclave, enum enclave_region_type type);
-int get_eid_region_index(enclave_id eid, enum enclave_region_type type);
 
-enclave_ret_code copy_from_host(void* source, void* dest, size_t size);
+struct platform_enclave_data *get_enclave_ped(struct enclave *enclave);
+struct runtime_pa_params *get_enclave_pa_params(struct enclave *enclave);
+void set_enclave_satp(struct enclave *enclave, unsigned long satp);
+int get_enclave_region_index(const struct enclave *enclave, enum enclave_region_type type);
 uintptr_t get_enclave_region_base(enclave_id eid, int memid);
 uintptr_t get_enclave_region_size(enclave_id eid, int memid);
+
+enclave_ret_code copy_from_host(void* source, void* dest, size_t size);
 
 #endif

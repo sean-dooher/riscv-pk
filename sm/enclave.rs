@@ -84,7 +84,7 @@ impl Enclave {
         &mut *(enc as *mut Self)
     }
 
-    pub fn region_id_bytype(&self, ty: enclave_region_type) -> Option<usize> {
+    pub fn region_idx_bytype(&self, ty: enclave_region_type) -> Option<usize> {
         self.regions
             .iter()
             .flatten()
@@ -94,7 +94,7 @@ impl Enclave {
     }
 
     pub(crate) fn region_bytype(&mut self, ty: enclave_region_type) -> Option<&mut EnclaveRegion> {
-        let i = self.region_id_bytype(ty)?;
+        let i = self.region_idx_bytype(ty)?;
         self.regions[i].as_mut()
     }
 }
@@ -302,8 +302,21 @@ pub extern "C" fn get_enclave_region_index(
     ty: enclave_region_type,
 ) -> c_int {
     let enclave = unsafe { Enclave::from_ffi(enclave) };
-    enclave.region_id_bytype(ty).unwrap_or(!0) as c_int
+    enclave.region_idx_bytype(ty).unwrap_or(!0) as c_int
 }
+
+#[no_mangle]
+pub extern "C" fn get_enclave_region_id(
+    enclave: *const enclave,
+    ty: enclave_region_type,
+) -> c_int {
+    let enclave = unsafe { Enclave::from_ffi(enclave) };
+    enclave.region_idx_bytype(ty)
+        .and_then(|r| enclave.regions[r].as_ref())
+        .map(|r| r.pmp.region)
+        .unwrap_or(!0) as c_int
+}
+
 
 fn is_create_args_valid(args: &keystone_sbi_create) -> bool {
     /* printm("[create args info]: \r\n\tepm_addr: %llx\r\n\tepmsize: %llx\r\n\tutm_addr: %llx\r\n\tutmsize: %llx\r\n\truntime_addr: %llx\r\n\tuser_addr: %llx\r\n\tfree_addr: %llx\r\n", */
@@ -395,24 +408,6 @@ pub unsafe extern "C" fn get_enclave_region_base(eid: enclave_id, memid: c_int) 
         .and_then(|e| e.as_ref())
         .map(|r| r.pmp.addr())
         .unwrap_or(0)
-}
-
-/*
- * Init all metadata as needed for keeping track of enclaves
- * Called once by the SM on startup
- */
-// TODO: There's nothing for platform_init_enclave to do with an enclave that hasn't been created yet... refactoring needed
-#[no_mangle]
-pub extern "C" fn enclave_init_metadata() {
-    /*let mut enclave_arr = enclaves.lock();
-
-    /* Assumes eids are incrementing values, which they are for now */
-    for enclave in enclave_arr.iter_mut().filter_map(|x|x.as_mut()) {
-        /* Fire all platform specific init for each enclave */
-        unsafe {
-            platform_init_enclave(enclave.to_ffi_mut());
-        }
-    }*/
 }
 
 /*********************************
@@ -788,6 +783,29 @@ pub extern "C" fn destroy_enclave(eid: enclave_id) -> enclave_ret_code {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_limited_eids() {
+        let mut eids: [Option<Eid>; NUM_ENCL] = unsafe { zeroed() };
+        for i in 0..NUM_ENCL {
+            unsafe {
+                core::ptr::write(&mut eids[i], None);
+            }
+        }
+        for i in 0..NUM_ENCL {
+            eids[i] = Eid::reserve().ok();
+            assert!(eids[i].is_some());
+        }
+
+        assert!(Eid::reserve().is_err());
+
+        eids[3] = None;
+        let newest = Eid::reserve().ok();
+        assert!(newest.is_some());
+        eids[3] = newest;
+
+        assert!(Eid::reserve().is_err());
+    }
 
     #[test]
     fn test_is_create_args_valid() {

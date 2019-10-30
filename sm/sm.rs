@@ -149,7 +149,6 @@ pub extern fn sm_init()
 
     init_data.init_done = true;
 
-
     if unsafe { platform_init_global_once() } != ENCLAVE_SUCCESS as usize {
       panic!("[SM] platform global init fatal error");
     }
@@ -165,13 +164,8 @@ pub extern fn sm_init()
     panic!("[SM] platform global init fatal error");
   }
 
-  unsafe {
-      // Copy the keypair from the root of trust
-      sm_copy_key();
-
-      // Init the enclave metadata
-      enclave_init_metadata();
-  }
+  // Copy the keypair from the root of trust
+  sm_copy_key();
 
   // for debug
   // sm_print_cert();

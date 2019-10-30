@@ -9,10 +9,6 @@ enclave_ret_code platform_init_global(){
   return ENCLAVE_SUCCESS;
 }
 
-void platform_init_enclave(struct enclave* enclave){
-  return;
-}
-
 void platform_destroy_enclave(struct enclave* enclave){
   return;
 }
